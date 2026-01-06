@@ -1,7 +1,6 @@
 """
 Data service for managing portfolio data persistence and loading.
 """
-import json
 import os
 import pandas as pd
 import numpy as np
@@ -14,7 +13,7 @@ logger = logging.getLogger(__name__)
 class DataService:
     """Service for managing portfolio data persistence."""
     
-    def __init__(self, save_file: str = "data/tornado.json"):
+    def __init__(self, save_file: str = "data/tornado.csv"):
 
         self.save_file = save_file
         self._ensure_data_directory()
@@ -27,16 +26,14 @@ class DataService:
 
     def load_portfolio_data(self) -> pd.DataFrame:
         """
-        Load portfolio data from file or return default data.
+        Load portfolio data from CSV file or return default data.
         
         Returns:
             DataFrame with portfolio data
         """
         if os.path.exists(self.save_file):
             try:
-                with open(self.save_file, "r") as f:
-                    data = json.load(f)
-                df = pd.DataFrame(data)
+                df = self.read_portfolio_csv(self.save_file)
                 logger.info(f"Loaded portfolio data from {self.save_file}")
                 return df
             except Exception as e:
@@ -48,14 +45,21 @@ class DataService:
     
     def save_portfolio_data(self, df: pd.DataFrame) -> None:
         """
-        Save portfolio data to file.
+        Save portfolio data to CSV file (only core columns).
         
         Args:
             df: DataFrame to save
         """
         try:
-            with open(self.save_file, "w") as f:
-                json.dump(df.to_dict(orient="list"), f, indent=2)
+            core_columns = ["Ticker", "Shares Held", "Target Weight (%)"]
+            # Ensure all required columns exist
+            for col in core_columns:
+                if col not in df.columns:
+                    raise ValueError(f"Missing required column: {col}")
+            
+            # Select only core columns and save as CSV
+            df_to_save = df[core_columns].copy()
+            df_to_save.to_csv(self.save_file, index=False)
             logger.info(f"Saved portfolio data to {self.save_file}")
         except Exception as e:
             logger.error(f"Error saving portfolio data: {e}")
@@ -71,8 +75,7 @@ class DataService:
         data = {
             "Ticker": ["TCS.NS", "INFY.NS", "HDFC.NS"],
             "Shares Held": [10, 20, 12],
-            "Target Weight (%)": [25.0, 50.0, 25.0],
-            "Current Price (per share)": [np.nan, np.nan, np.nan]
+            "Target Weight (%)": [25.0, 50.0, 25.0]
         }
         return pd.DataFrame(data)
     

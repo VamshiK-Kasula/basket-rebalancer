@@ -104,10 +104,6 @@ class PortfolioRebalancerApp:
             user_columns = ["Ticker", "Shares Held", "Target Weight (%)"]
             user_data = df[user_columns].copy()
             
-            # Preserve original prices from session state
-            if "Current Price (per share)" in st.session_state['portfolio_df'].columns:
-                user_data["Current Price (per share)"] = st.session_state['portfolio_df']["Current Price (per share)"]
-            
             self.data_service.save_portfolio_data(user_data)
             st.success("💾 Changes saved permanently to file!")
             
@@ -164,10 +160,6 @@ class PortfolioRebalancerApp:
             # Save current user data to file (only user-editable columns)
             user_columns = ["Ticker", "Shares Held", "Target Weight (%)"]
             user_data = df[user_columns].copy()
-            
-            # Add current prices from session state (preserve user-set prices)
-            if "Current Price (per share)" in st.session_state['portfolio_df'].columns:
-                user_data["Current Price (per share)"] = st.session_state['portfolio_df']["Current Price (per share)"]
             
             self.data_service.save_portfolio_data(user_data)
             st.success("💾 Portfolio data saved to file!")

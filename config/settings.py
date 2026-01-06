@@ -11,7 +11,7 @@ class AppConfig:
     """Application configuration settings."""
     
     # File paths
-    SAVE_FILE: str = "data/tornado.json"
+    SAVE_FILE: str = "data/tornado.csv"
     
     # Default portfolio data
     DEFAULT_TICKERS: List[str] = None
