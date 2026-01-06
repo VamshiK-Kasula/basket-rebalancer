@@ -183,7 +183,7 @@ class PortfolioRebalancerApp:
             
             # Show suggestion for additional investment
             suggested_amount = self.data_service.get_suggested_additional_amount(
-                rebalanced_df["Target Value"], 
+                rebalanced_df["Target Value (Actual)"], 
                 df["Current Value"].sum()
             )
             self.ui.render_suggestion_message(suggested_amount, additional_amount)

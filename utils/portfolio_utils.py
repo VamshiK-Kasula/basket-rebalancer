@@ -114,6 +114,39 @@ def format_percentage(value: float) -> str:
     return f"{value:.2f}%"
 
 
+def reorder_rebalanced_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Reorder columns in the rebalanced portfolio DataFrame to a specified order.
+    
+    Args:
+        df: DataFrame to reorder
+        
+    Returns:
+        DataFrame with reordered columns
+    """
+    column_order = [
+        "Ticker",
+        "Shares Held",
+        "Current Price (per share)",
+        "Current Weight (%)",
+        "Current Value",
+        "Target Weight (%)",
+        "Target Value",
+        "Target Shares",
+        "Target Value (Actual)",
+        "Difference",
+        "Action",
+        "Shares to Buy/Sell",
+        "Real Weight (%)"
+    ]
+    
+    available_columns = [col for col in column_order if col in df.columns]
+    remaining_columns = [col for col in df.columns if col not in available_columns]
+    final_column_order = available_columns + remaining_columns
+    
+    return df[final_column_order]
+
+
 def calculate_rebalancing_metrics(df: pd.DataFrame, additional_capital: float = 0.0) -> pd.DataFrame:
     """
     Calculate rebalancing metrics for a portfolio.
@@ -157,4 +190,4 @@ def calculate_rebalancing_metrics(df: pd.DataFrame, additional_capital: float = 
     else:
         df["Real Weight (%)"] = 0.0
     
-    return df 
+    return reorder_rebalanced_columns(df) 

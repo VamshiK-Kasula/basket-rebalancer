@@ -146,14 +146,20 @@ class PortfolioUIComponents:
     @staticmethod
     def render_download_button(df: pd.DataFrame) -> None:
         """
-        Render download button for CSV export.
+        Render download button to save current basket state.
         
         Args:
-            df: DataFrame to export
+            df: Rebalanced portfolio DataFrame
         """
-        csv = df.to_csv(index=False).encode('utf-8')
+        state_df = pd.DataFrame({
+            "Ticker": df["Ticker"],
+            "Shares Held": df["Target Shares"],
+            "Target Weight (%)": df["Target Weight (%)"]
+        })
+        
+        csv = state_df.to_csv(index=False).encode('utf-8')
         st.download_button(
-            "📥 Download Result as CSV", 
+            "💾 Save Current Basket State", 
             csv, 
             "rebalanced_portfolio.csv", 
             "text/csv"
@@ -216,13 +222,13 @@ class PortfolioUIComponents:
                     "background-color": "#e8f4fd",
                     "font-weight": "bold"
                 },
-                subset=["Ticker", "Shares Held", "Target Weight (%)", "Current Price (per share)"]
+                subset=["Ticker", "Shares Held", "Target Weight (%)", "Target Shares", "Current Price (per share)"]
             ) \
             .set_properties(
                 **{
                     "background-color": "#f4f9f4"
                 },
-                subset=["Current Value", "Current Weight (%)", "Target Shares", "Target Value", "Shares to Buy/Sell", "Real Weight (%)"]
+                subset=["Current Value", "Current Weight (%)", "Target Value", "Shares to Buy/Sell", "Real Weight (%)"]
             ) \
             .format({
                 "Current Price (per share)": "₹{:.2f}",
