@@ -71,7 +71,7 @@ class PortfolioUIComponents:
         edited_df = st.data_editor(
             df_reordered, 
             num_rows="dynamic", 
-            use_container_width=True,
+            width="stretch",
         )
         
         return edited_df
@@ -139,7 +139,7 @@ class PortfolioUIComponents:
         st.markdown("### 🧾 Rebalanced Portfolio")
         st.dataframe(
             PortfolioUIComponents.style_output(df), 
-            use_container_width=True, 
+            width="stretch", 
             height=500
         )
     
@@ -216,7 +216,7 @@ class PortfolioUIComponents:
             return f"background-color: {color}"
 
         return df.style \
-            .applymap(highlight_action, subset=["Action"]) \
+            .map(highlight_action, subset=["Action"]) \
             .set_properties(
                 **{
                     "background-color": "#e8f4fd",
