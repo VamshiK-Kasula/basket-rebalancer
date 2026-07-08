@@ -51,7 +51,7 @@ class DataService:
             df: DataFrame to save
         """
         try:
-            core_columns = ["Ticker", "Shares Held", "Target Weight (%)"]
+            core_columns = ["Stock Name", "Ticker", "Shares Held", "Target Weight (%)"]
             # Ensure all required columns exist
             for col in core_columns:
                 if col not in df.columns:
@@ -73,6 +73,7 @@ class DataService:
             DataFrame with default portfolio holdings
         """
         data = {
+            "Stock Name": ["Tata Consultancy Services", "Infosys", "HDFC Bank"],
             "Ticker": ["TCS.NS", "INFY.NS", "HDFC.NS"],
             "Shares Held": [10, 20, 12],
             "Target Weight (%)": [25.0, 50.0, 25.0]
@@ -94,20 +95,18 @@ class DataService:
 
     def _validate_csv_columns(self, df: pd.DataFrame) -> None:
         """Validate that CSV has exactly the expected columns in the expected order."""
-        expected_columns = ["Ticker", "Shares Held", "Target Weight (%)"]
+        expected_columns = ["Stock Name", "Ticker", "Shares Held", "Target Weight (%)"]
+        legacy_columns = ["Ticker", "Shares Held", "Target Weight (%)"]
         incoming_columns = [col.strip() for col in df.columns.tolist()]
-        if incoming_columns != expected_columns:
+        if incoming_columns != expected_columns and incoming_columns != legacy_columns:
             raise ValueError(
                 "CSV schema mismatch. Expected columns exactly: "
-                f"{expected_columns} but got {incoming_columns}."
+                f"{expected_columns} or {legacy_columns} but got {incoming_columns}."
             )
 
     def read_portfolio_csv(self, input_source: Union[str, IO[str], IO[bytes]]) -> pd.DataFrame:
         """
         Read a portfolio CSV and validate it matches the export schema exactly.
-
-        The CSV must contain exactly these columns in this order:
-        ["Ticker", "Shares Held", "Target Weight (%)"].
         """
         try:
             df = pd.read_csv(input_source)
@@ -118,7 +117,15 @@ class DataService:
         # Validate schema strictly
         self._validate_csv_columns(df)
 
+        # Standardize columns
+        df.columns = [col.strip() for col in df.columns]
+
+        # If Stock Name is missing (legacy CSV), populate with Ticker
+        if "Stock Name" not in df.columns:
+            df["Stock Name"] = df["Ticker"]
+
         # Coerce types and clean values
+        df["Stock Name"] = df["Stock Name"].astype(str).str.strip()
         df["Ticker"] = df["Ticker"].astype(str).str.strip()
         df["Shares Held"] = pd.to_numeric(df["Shares Held"], errors="raise").astype(int)
         df["Target Weight (%)"] = pd.to_numeric(df["Target Weight (%)"], errors="raise").astype(float)

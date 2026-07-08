@@ -14,12 +14,15 @@ class AppConfig:
     SAVE_FILE: str = "data/tornado.csv"
     
     # Default portfolio data
+    DEFAULT_NAMES: List[str] = None
     DEFAULT_TICKERS: List[str] = None
     DEFAULT_SHARES: List[int] = None
     DEFAULT_WEIGHTS: List[float] = None
     
     def __post_init__(self):
         """Initialize default values after dataclass creation."""
+        if self.DEFAULT_NAMES is None:
+            self.DEFAULT_NAMES = ["Tata Consultancy Services", "Infosys", "HDFC Bank"]
         if self.DEFAULT_TICKERS is None:
             self.DEFAULT_TICKERS = ["TCS.NS", "INFY.NS", "HDFC.NS"]
         if self.DEFAULT_SHARES is None:

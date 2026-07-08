@@ -22,22 +22,42 @@ class PortfolioUIComponents:
     
     @staticmethod
     def render_data_input_selector():
-        """Render a selector for data input method and optionally a CSV uploader.
+        """Render a selector for data input method and optionally a CSV/Image uploader.
 
         Returns:
-            Tuple[str, Optional[UploadedFile]]: selected mode and uploaded file if any
+            Tuple[str, Optional[Any], Optional[str]]: selected mode, uploaded file, and API key
         """
         mode = st.radio(
             "Choose how to provide portfolio data",
-            options=["Manual Entry", "Upload CSV"],
+            options=["Manual Entry", "Upload CSV", "Upload Image Table"],
             horizontal=True,
         )
         uploaded = None
+        api_key = None
+        
         if mode == "Upload CSV":
             with st.expander("CSV requirements (exact columns)", expanded=False):
-                st.code("Ticker,Shares Held,Target Weight (%)")
+                st.code("Stock Name,Ticker,Shares Held,Target Weight (%)")
             uploaded = st.file_uploader("Upload CSV", type=["csv"], accept_multiple_files=False)
-        return mode, uploaded
+            
+        elif mode == "Upload Image Table":
+            uploaded = st.file_uploader("Upload portfolio screenshot", type=["png", "jpg", "jpeg"], accept_multiple_files=False)
+            
+            # Look for Gemini API Key in environment first
+            import os
+            env_key = os.environ.get("GEMINI_API_KEY", "")
+            
+            st.markdown("### 🔑 Gemini API Credentials")
+            api_key = st.text_input(
+                "Enter Gemini API Key (obtain from Google AI Studio)",
+                value=st.session_state.get("gemini_api_key", env_key),
+                type="password",
+                placeholder="AIzaSy..."
+            )
+            if api_key:
+                st.session_state["gemini_api_key"] = api_key
+                
+        return mode, uploaded, api_key
 
     @staticmethod
     def render_portfolio_table(df: pd.DataFrame) -> pd.DataFrame:
@@ -52,6 +72,7 @@ class PortfolioUIComponents:
         """
         # Rearrange columns in the desired order
         column_order = [
+            "Stock Name",
             "Ticker", 
             "Shares Held", 
             "Current Price (per share)", 
@@ -62,7 +83,11 @@ class PortfolioUIComponents:
         
         # Only include columns that exist in the DataFrame
         available_columns = [col for col in column_order if col in df.columns]
-        df_reordered = df[available_columns]
+        df_reordered = df[available_columns].copy()
+        
+        # Add 1-based serial numbers as the index
+        df_reordered.index = range(1, len(df_reordered) + 1)
+        df_reordered.index.name = "#"
         
         st.markdown("### 📊 Portfolio Holdings")
         st.markdown("Edit the values below to update your portfolio. Changes are automatically saved to session.")
@@ -72,6 +97,7 @@ class PortfolioUIComponents:
             df_reordered, 
             num_rows="dynamic", 
             width="stretch",
+            hide_index=False,
         )
         
         return edited_df
@@ -152,6 +178,7 @@ class PortfolioUIComponents:
             df: Rebalanced portfolio DataFrame
         """
         state_df = pd.DataFrame({
+            "Stock Name": df["Stock Name"],
             "Ticker": df["Ticker"],
             "Shares Held": df["Target Shares"],
             "Target Weight (%)": df["Target Weight (%)"]
@@ -222,7 +249,7 @@ class PortfolioUIComponents:
                     "background-color": "#e8f4fd",
                     "font-weight": "bold"
                 },
-                subset=["Ticker", "Shares Held", "Target Weight (%)", "Target Shares", "Current Price (per share)"]
+                subset=["Stock Name", "Ticker", "Shares Held", "Target Weight (%)", "Target Shares", "Current Price (per share)"]
             ) \
             .set_properties(
                 **{

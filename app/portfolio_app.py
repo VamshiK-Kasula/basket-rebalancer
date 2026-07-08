@@ -9,6 +9,7 @@ from typing import Optional, Dict
 
 from services.price_service import PriceService
 from services.data_service import DataService
+from services.image_service import ImageService
 from ui.components import PortfolioUIComponents
 from utils.portfolio_utils import calculate_portfolio_metrics, calculate_rebalancing_metrics, validate_portfolio_data
 from config.settings import app_config
@@ -22,27 +23,87 @@ class PortfolioRebalancerApp:
     def __init__(self):
         """Initialize the application with all required services."""
         self.price_service = PriceService()
+        self.image_service = ImageService()
         self._price_cache: Dict[str, float] = {}
         self.data_service = DataService(app_config.SAVE_FILE)
         self.ui = PortfolioUIComponents()
-        self._portfolio_df = self.data_service.load_portfolio_data()
+        
+        # Load from session state if available to keep user-specific state isolated,
+        # otherwise load from default file.
+        if 'portfolio_df' in st.session_state:
+            self._portfolio_df = st.session_state['portfolio_df']
+        else:
+            self._portfolio_df = self.data_service.load_portfolio_data()
     
     def run(self) -> None:
         try:
             print("Running application")
 
             # 0. Let user choose data input method
-            mode, uploaded = self.ui.render_data_input_selector()
+            mode, uploaded, api_key = self.ui.render_data_input_selector()
 
             # 1. If CSV mode and a file is uploaded, read it
             if mode == "Upload CSV" and uploaded is not None:
                 try:
                     csv_df = self.data_service.read_portfolio_csv(uploaded)
                     self._portfolio_df = csv_df
+                    st.session_state['portfolio_df'] = csv_df
                     st.success("✅ CSV loaded successfully!")
                 except Exception as e:
                     self.ui.render_error_message(str(e))
                     # Fall back to existing data
+            
+            # 1b. If Image mode and a file is uploaded, read it using Gemini
+            elif mode == "Upload Image Table" and uploaded is not None:
+                if not api_key:
+                    st.warning("⚠️ Please enter a Gemini API Key to parse the image.")
+                else:
+                    if st.button("🔮 Extract Portfolio from Image", type="primary"):
+                        try:
+                            with st.spinner("Analyzing image layout and extracting stocks/weights using Gemini..."):
+                                image_bytes = uploaded.read()
+                                mime_type = uploaded.type
+                                
+                                # Call Gemini to parse the image
+                                extracted_stocks = self.image_service.parse_portfolio_image(
+                                    image_bytes=image_bytes,
+                                    mime_type=mime_type,
+                                    api_key=api_key
+                                )
+                                
+                            if not extracted_stocks:
+                                st.warning("⚠️ No stocks could be extracted from this image. Please check the image layout.")
+                            else:
+                                resolved_list = []
+                                progress_text = "Resolving stock names to tickers on Yahoo Finance..."
+                                progress_bar = st.progress(0, text=progress_text)
+                                
+                                for i, stock in enumerate(extracted_stocks):
+                                    name = stock.get("stock_name", "")
+                                    weight = float(stock.get("weight", 0.0))
+                                    
+                                    # Resolve ticker symbol using yfinance search
+                                    progress_bar.progress((i + 1) / len(extracted_stocks), text=f"Resolving ticker for {name}...")
+                                    ticker = self.image_service.resolve_ticker_symbol(name)
+                                    
+                                    resolved_list.append({
+                                        "Stock Name": name,
+                                        "Ticker": ticker,
+                                        "Shares Held": 0,  # Default since weightage doesn't tell us shares held
+                                        "Target Weight (%)": weight
+                                    })
+                                    
+                                progress_bar.empty()
+                                
+                                # Build dataframe and store in session
+                                image_df = pd.DataFrame(resolved_list)
+                                self._portfolio_df = image_df
+                                st.session_state['portfolio_df'] = image_df
+                                st.success("✅ Portfolio successfully extracted from image!")
+                                st.rerun()
+                                
+                        except Exception as e:
+                            self.ui.render_error_message(str(e))
 
             # 2. Show editable table (user_df is always the user's last edit)
             self._portfolio_df = self.ui.render_portfolio_table(self._portfolio_df)
@@ -94,22 +155,22 @@ class PortfolioRebalancerApp:
     
     def _save_user_data_to_file(self, df: pd.DataFrame) -> None:
         """
-        Save user data to file (only user-editable columns).
+        Save user data to session state (only user-editable columns).
         
         Args:
             df: DataFrame with user edits
         """
         try:
             # Only save user-editable columns
-            user_columns = ["Ticker", "Shares Held", "Target Weight (%)"]
+            user_columns = ["Stock Name", "Ticker", "Shares Held", "Target Weight (%)"]
             user_data = df[user_columns].copy()
             
-            self.data_service.save_portfolio_data(user_data)
-            st.success("💾 Changes saved permanently to file!")
+            st.session_state['portfolio_df'] = user_data
+            st.success("💾 Changes saved to session!")
             
         except Exception as e:
-            st.error(f"❌ Error saving to file: {e}")
-            logger.error(f"Error saving user data: {e}")
+            st.error(f"❌ Error saving: {e}")
+            logger.error(f"Error saving user data to session: {e}")
     
     def _display_portfolio_metrics(self, df: pd.DataFrame) -> None:
         """
@@ -157,12 +218,12 @@ class PortfolioRebalancerApp:
                     self.ui.render_error_message(error)
                 return
             
-            # Save current user data to file (only user-editable columns)
-            user_columns = ["Ticker", "Shares Held", "Target Weight (%)"]
+            # Save current user data to session state (only user-editable columns)
+            user_columns = ["Stock Name", "Ticker", "Shares Held", "Target Weight (%)"]
             user_data = df[user_columns].copy()
             
-            self.data_service.save_portfolio_data(user_data)
-            st.success("💾 Portfolio data saved to file!")
+            st.session_state['portfolio_df'] = user_data
+            st.success("💾 Portfolio data saved to session!")
             
             # Calculate rebalancing metrics
             rebalanced_df = calculate_rebalancing_metrics(df, additional_amount)

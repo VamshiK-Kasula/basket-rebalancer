@@ -66,7 +66,7 @@ def validate_portfolio_data(df: pd.DataFrame) -> List[str]:
     errors = []
     
     # Check for required columns
-    required_columns = ["Ticker", "Shares Held", "Target Weight (%)"]
+    required_columns = ["Stock Name", "Ticker", "Shares Held", "Target Weight (%)"]
     missing_columns = [col for col in required_columns if col not in df.columns]
     if missing_columns:
         errors.append(f"Missing required columns: {missing_columns}")
@@ -125,6 +125,7 @@ def reorder_rebalanced_columns(df: pd.DataFrame) -> pd.DataFrame:
         DataFrame with reordered columns
     """
     column_order = [
+        "Stock Name",
         "Ticker",
         "Shares Held",
         "Current Price (per share)",
